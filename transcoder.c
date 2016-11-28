@@ -615,7 +615,7 @@ int main(int argc, char **argv)
 
 	/* read all packets */
 	while (1) {
-		
+		j++;
 		if ((ret = av_read_frame(ifmt_ctx, &packet)) < 0)
 			break;
 		stream_index = packet.stream_index;
@@ -623,7 +623,7 @@ int main(int argc, char **argv)
 		av_log(NULL, AV_LOG_DEBUG, "Demuxer gave frame of stream_index %u\n",
 				stream_index);
 
-		//if (filter_ctx[stream_index].filter_graph) {
+		if (filter_ctx[stream_index].filter_graph) {
 			av_log(NULL, AV_LOG_DEBUG, "Going to reencode&filter the frame\n");
 			frame = av_frame_alloc();
 			if (!frame) {
@@ -666,39 +666,37 @@ int main(int argc, char **argv)
 			} else {
 				av_frame_free(&frame);
 			}
-			/*
+			
 		} else {
-			/* remux this frame without reencoding *//*
-			av_packet_rescale_ts(&packet,
-								 ifmt_ctx->streams[stream_index]->time_base,
-								 ofmt_ctx->streams[stream_index]->time_base);
+			/* remux this frame without reencoding */
+			av_packet_rescale_ts(&packet,ifmt_ctx->streams[stream_index]->time_base,ofmt_ctx->streams[stream_index]->time_base);
 
 			ret = av_interleaved_write_frame(ofmt_ctx, &packet);
 			if (ret < 0)
 				goto end;
-		}*/
+		}
 		av_packet_unref(&packet);
 	}
 
 	
 	/* flush filters and encoders */
-	/*for (i = 0; i < ifmt_ctx->nb_streams; i++) {
+	for (i = 0; i < ifmt_ctx->nb_streams; i++) {
 		/* flush filter */
-	/*	if (!filter_ctx[i].filter_graph)
+		if (!filter_ctx[i].filter_graph)
 			continue;
-		ret = filter_encode_write_frame(NULL, i,NULL);
+		ret = filter_encode_write_frame(NULL, i);
 		if (ret < 0) {
 			av_log(NULL, AV_LOG_ERROR, "Flushing filter failed\n");
 			goto end;
 		}
 
 		/* flush encoder */
-	/*	ret = flush_encoder(i);
+		ret = flush_encoder(i);
 		if (ret < 0) {
 			av_log(NULL, AV_LOG_ERROR, "Flushing encoder failed\n");
 			goto end;
 		}
-	}*/
+	}
 
 	av_write_trailer(ofmt_ctx);
 
