@@ -237,8 +237,8 @@ static int open_output_file(const char *filename)
 
 		/* in this example, we choose transcoding to same codec */
 		//TO DO cambiare encoder in h264
-		encoder=avcodec_find_encoder(AV_CODEC_ID_MJPEG);
-
+		//encoder=avcodec_find_encoder(AV_CODEC_ID_MJPEG);
+		encoder=avcodec_find_encoder(AV_CODEC_ID_H264);
 		if (!encoder) {
 			av_log(NULL, AV_LOG_FATAL, "Necessary encoder not found\n");
 			return AVERROR_INVALIDDATA;
@@ -498,7 +498,7 @@ static int encode_write_frame(AVFrame *filt_frame, unsigned int stream_index, in
 
 	/* prepare packet for muxing */
 	enc_pkt.stream_index = stream_index;
-	//av_packet_rescale_ts(&enc_pkt, ofmt_ctx->streams[stream_index]->codec->time_base, ofmt_ctx->streams[stream_index]->time_base);
+	av_packet_rescale_ts(&enc_pkt, ofmt_ctx->streams[stream_index]->codec->time_base, ofmt_ctx->streams[stream_index]->time_base);
 
 	av_log(NULL, AV_LOG_DEBUG, "Muxing frame\n");
 	/* mux encoded frame */
@@ -611,10 +611,11 @@ int main(int argc, char **argv)
 	
 
 
-
+		int j=0;
 
 	/* read all packets */
 	while (1) {
+		
 		if ((ret = av_read_frame(ifmt_ctx, &packet)) < 0)
 			break;
 		stream_index = packet.stream_index;
@@ -630,9 +631,7 @@ int main(int argc, char **argv)
 				break;
 			}
 			//avcodec_get_frame_defaults(frame);
-			//av_packet_rescale_ts(&packet,
-			//					 ifmt_ctx->streams[stream_index]->time_base,
-			//					 ifmt_ctx->streams[stream_index]->codec->time_base);
+			av_packet_rescale_ts(&packet,ifmt_ctx->streams[stream_index]->time_base,ifmt_ctx->streams[stream_index]->codec->time_base);
 
 			AVCodecContext *dec_ctx = NULL;
 			AVCodec *decoder = NULL;
