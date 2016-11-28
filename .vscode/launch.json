@@ -6,7 +6,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceRoot}/transcoder",
-            "args": ["video.mp4", "test.mp4"],
+            "args": ["/dev/video0", "test.mp4"],
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}",
             "environment": [],
