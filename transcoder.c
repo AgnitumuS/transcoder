@@ -43,7 +43,7 @@
 #include <libavutil/samplefmt.h>
 #include <libavutil/opt.h>
 
-
+#include <signal.h>
 
  #define AV_CODEC_CAP_DELAY               (1 <<  5)
  #define AV_CODEC_FLAG_GLOBAL_HEADER   (1 << 22)
@@ -571,6 +571,35 @@ static int flush_encoder(unsigned int stream_index)
 	return ret;
 }
 
+
+void sig_handler(int signo)
+{
+	int i;
+	int ret;
+  if (signo == SIGINT){
+	  for (i = 0; i < ifmt_ctx->nb_streams; i++) {
+		/* flush filter */
+		if (!filter_ctx[i].filter_graph)
+			continue;
+		ret = filter_encode_write_frame(NULL, i);
+		if (ret < 0) {
+			av_log(NULL, AV_LOG_ERROR, "Flushing filter failed\n");
+			exit(-1);
+		}
+
+		/* flush encoder */
+		ret = flush_encoder(i);
+		if (ret < 0) {
+			av_log(NULL, AV_LOG_ERROR, "Flushing encoder failed\n");
+			exit(-1);
+		}
+	}
+
+	av_write_trailer(ofmt_ctx);
+	exit(0);
+  }
+}
+
 int main(int argc, char **argv)
 {
 	int ret;
@@ -587,6 +616,8 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	if (signal(SIGINT, sig_handler) == SIG_ERR)
+  		printf("\ncan't catch SIGINT\n");
 
 	av_register_all();
 	avfilter_register_all();
@@ -616,8 +647,14 @@ int main(int argc, char **argv)
 	/* read all packets */
 	while (1) {
 		j++;
-		if ((ret = av_read_frame(ifmt_ctx, &packet)) < 0)
-			break;
+		//if ((ret = av_read_frame(ifmt_ctx, &packet)) < 0)
+		//	break;
+		ret = av_read_frame(ifmt_ctx, &packet);
+		if(ret<0){
+			printf("\read %d",ret);
+			sleep(1);
+		}
+		
 		stream_index = packet.stream_index;
 		type = ifmt_ctx->streams[packet.stream_index]->codec->codec_type;
 		av_log(NULL, AV_LOG_DEBUG, "Demuxer gave frame of stream_index %u\n",
