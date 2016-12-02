@@ -99,6 +99,36 @@ static int open_webcam(const char *src_filename){
 }
 
 
+static int open_rtp(const char *src_filename){
+	ifmt = av_find_input_format("rtp");
+	if (!ifmt) {
+        av_log(0, AV_LOG_ERROR, "Cannot find input format\n");
+        return -1;
+	}
+	ifmt_ctx=avformat_alloc_context();
+	if (!ifmt_ctx)
+    {
+      av_log(0, AV_LOG_ERROR, "Cannot allocate input format (Out of memory?)\n");
+      return -1;
+	}
+	
+	ifmt_ctx->flags |= AVFMT_FLAG_NONBLOCK;
+	/*av_dict_set(&options, "framerate", "25", 0);
+	av_dict_set(&options, "input_format", "mjpeg", 0);
+	av_dict_set(&options, "video_size", "640x480", 0);*/
+	if (avformat_open_input(&ifmt_ctx, src_filename, ifmt,NULL/* &options*/) < 0) {
+        av_log(0, AV_LOG_ERROR, "Could not open source file %s\n", src_filename);
+        return -1;
+	}
+	if (avformat_find_stream_info(ifmt_ctx, NULL) < 0) {
+        av_log(0, AV_LOG_ERROR, "Could not find stream information\n");
+        return -1;
+	}
+	av_dump_format(ifmt_ctx, 0, src_filename, 0);
+
+}
+
+
 
 
 static int read_packet(void *opaque, uint8_t *buf, int buf_size)
@@ -616,16 +646,19 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (signal(SIGINT, sig_handler) == SIG_ERR)
-  		printf("\ncan't catch SIGINT\n");
+	if (signal(SIGINT, sig_handler) == SIG_ERR){
+		printf("\ncan't catch SIGINT\n");
+		exit(-1);
+	}
 
 	av_register_all();
+	avformat_network_init();
 	avfilter_register_all();
 	avdevice_register_all();
 
 
 
-	ret = open_webcam(argv[1]);
+	ret = open_rtp(argv[1]);//open_webcam(argv[1]);
 	if (ret < 0){
 		fprintf(stderr,"Error on opening %s",argv[1]);
 		exit(-1);
@@ -649,11 +682,11 @@ int main(int argc, char **argv)
 		j++;
 		//if ((ret = av_read_frame(ifmt_ctx, &packet)) < 0)
 		//	break;
-		ret = av_read_frame(ifmt_ctx, &packet);
-		if(ret<0){
-			printf("\read %d",ret);
-			sleep(1);
-		}
+		do{
+			ret = av_read_frame(ifmt_ctx, &packet);
+		} while(ret<0);
+		
+		
 		
 		stream_index = packet.stream_index;
 		type = ifmt_ctx->streams[packet.stream_index]->codec->codec_type;

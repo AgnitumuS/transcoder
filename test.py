@@ -28,3 +28,6 @@ print ff.cmd
 
 #### BEST QUALITY
 #ffmpeg -f v4l2 -input_format mjpeg -i /dev/video0 -framerate 30 -c:v libx264 -preset ultrafast -tune zerolatency -x264opts crf=20:vbv-maxrate=3000:vbv-bufsize=100:intra-refresh=1:slice-max-size=1500:keyint=30:ref=1 -sdp_file stream.sdp -f rtp rtp://127.0.0.1:50040
+
+
+#ffmpeg -f rtp  -i rtp://127.0.0.1;50040 -vcodec mjpeg  -f mpegts test.mp4
