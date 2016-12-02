@@ -675,11 +675,9 @@ int main(int argc, char **argv)
 	
 
 
-		int j=0;
 
 	/* read all packets */
 	while (1) {
-		j++;
 		//if ((ret = av_read_frame(ifmt_ctx, &packet)) < 0)
 		//	break;
 		do{
