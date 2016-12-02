@@ -5,8 +5,8 @@
             "name": "C++ Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceRoot}/transcoder",
-            "args": ["/dev/video0", "test.mp4"],
+            "program": "${workspaceRoot}/transcoder-ng",
+            "args": ["rtp://127.0.0.1:50040", "test.mp4"],
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}",
             "environment": [],
@@ -25,7 +25,7 @@
             "name": "C++ Attach",
             "type": "cppdbg",
             "request": "attach",
-            "program": "/home/gabriele/Scrivania/transcoder video.mp4 test.mp4",
+            "program": "${workspaceRoot}/transcoder",
             "processId": "${command.pickProcess}",
             "linux": {
                 "MIMode": "gdb"

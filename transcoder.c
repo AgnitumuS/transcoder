@@ -55,14 +55,14 @@ struct buffer_data {
 };
 
 
-static AVFormatContext *ifmt_ctx;
-static AVFormatContext *ofmt_ctx;
+ AVFormatContext *ifmt_ctx;
+ AVFormatContext *ofmt_ctx;
 typedef struct FilteringContext {
 	AVFilterContext *buffersink_ctx;
 	AVFilterContext *buffersrc_ctx;
 	AVFilterGraph *filter_graph;
 } FilteringContext;
-static FilteringContext *filter_ctx;
+ FilteringContext *filter_ctx;
 AVInputFormat *ifmt=NULL;
 AVDictionary *options = NULL;
 
@@ -99,6 +99,22 @@ static int open_webcam(const char *src_filename){
 }
 
 
+int open_rtp_stream(char *url){
+	AVFormatContext* context = avformat_alloc_context();
+	int video_stream_index;
+
+	if(avformat_open_input(&context,url,NULL,NULL) != 0){
+        return EXIT_FAILURE;
+    }
+
+    if(avformat_find_stream_info(context,NULL) < 0){
+        return EXIT_FAILURE;
+    }
+	av_dump_format(context, 0, url, 0);
+	
+	ifmt_ctx=context;
+}
+
 static int open_rtp(const char *src_filename){
 	ifmt = av_find_input_format("rtp");
 	if (!ifmt) {
@@ -113,10 +129,11 @@ static int open_rtp(const char *src_filename){
 	}
 	
 	ifmt_ctx->flags |= AVFMT_FLAG_NONBLOCK;
+	av_dict_set(&options, "input_format", "h264", 0);
 	/*av_dict_set(&options, "framerate", "25", 0);
 	av_dict_set(&options, "input_format", "mjpeg", 0);
 	av_dict_set(&options, "video_size", "640x480", 0);*/
-	if (avformat_open_input(&ifmt_ctx, src_filename, ifmt,NULL/* &options*/) < 0) {
+	if (avformat_open_input(&ifmt_ctx, src_filename, ifmt, &options) < 0) {
         av_log(0, AV_LOG_ERROR, "Could not open source file %s\n", src_filename);
         return -1;
 	}
@@ -318,9 +335,7 @@ static int open_output_file(const char *filename)
 	return 0;
 }
 
-static int init_filter(FilteringContext* fctx, AVCodecContext *dec_ctx,
-		AVCodecContext *enc_ctx, const char *filter_spec)
-{
+static int init_filter(FilteringContext* fctx, AVCodecContext *dec_ctx,	AVCodecContext *enc_ctx, const char *filter_spec) {
 	char args[512];
 	int ret = 0;
 	AVFilter *buffersrc = NULL;
@@ -658,11 +673,26 @@ int main(int argc, char **argv)
 
 
 
-	ret = open_rtp(argv[1]);//open_webcam(argv[1]);
+	ret=open_rtp_stream(argv[1]);
 	if (ret < 0){
 		fprintf(stderr,"Error on opening %s",argv[1]);
 		exit(-1);
 	}
+	
+	av_init_packet(&packet)
+
+	
+
+
+
+
+
+
+	/*ret = open_rtp(argv[1]);//open_webcam(argv[1]);
+	if (ret < 0){
+		fprintf(stderr,"Error on opening %s",argv[1]);
+		exit(-1);
+	}*/
 	
 	ret = open_output_file(argv[2]);
 	if (ret < 0){
@@ -708,7 +738,8 @@ int main(int argc, char **argv)
 			//decoder=avcodec_find_decoder(dec_ctx->codec_id);
 			ret = avcodec_open2(dec_ctx,avcodec_find_decoder(dec_ctx->codec_id), NULL);
 			if (ret < 0) {
-				av_log(NULL, AV_LOG_ERROR, "Failed to open decoder for stream #%u\n", stream_index);
+				
+av_log(NULL, AV_LOG_ERROR, "Failed to open decoder for stream #%u\n", stream_index);
 				break;
 			}
 			//avcodec_alloc_context3(decoder);
