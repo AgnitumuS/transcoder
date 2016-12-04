@@ -93,7 +93,8 @@ AVFormatContext *open_rtp_stream(char *url,int *index)
 }
 
 
-AVFormatContext *open_output_file(const char *filename,AVFormatContext *ifmt_ctx){
+
+AVFormatContext *open_output_file(const char *filename,AVFormatContext *ifmt_ctx,unsigned int stream_index){
 	AVStream *out_stream;
 	AVStream *in_stream;
 	AVCodecContext *dec_ctx, *enc_ctx;
@@ -101,6 +102,7 @@ AVFormatContext *open_output_file(const char *filename,AVFormatContext *ifmt_ctx
 	AVCodec *encoder;
 	int ret;
 	unsigned int i;
+	i=stream_index;
 
 	ofmt_ctx = NULL;
 	avformat_alloc_output_context2(&ofmt_ctx, NULL, NULL, filename);
@@ -110,7 +112,7 @@ AVFormatContext *open_output_file(const char *filename,AVFormatContext *ifmt_ctx
 	}
 
 
-	for (i = 0; i < ifmt_ctx->nb_streams; i++) {
+	//for (i = 0; i < ifmt_ctx->nb_streams; i++) {
 		out_stream = avformat_new_stream(ofmt_ctx, NULL);
 		if (!out_stream) {
 			av_log(NULL, AV_LOG_ERROR, "Failed allocating output stream\n");
@@ -134,9 +136,11 @@ AVFormatContext *open_output_file(const char *filename,AVFormatContext *ifmt_ctx
 		out_stream->codec=enc_ctx;
 		enc_ctx->height = dec_ctx->height;
 		enc_ctx->width = dec_ctx->width;
-		//enc_ctx->sample_aspect_ratio = dec_ctx->sample_aspect_ratio;
+		enc_ctx->sample_aspect_ratio = dec_ctx->sample_aspect_ratio;
 
-		enc_ctx->time_base = dec_ctx->time_base;//(AVRational){1,30}; //(1,fps del video )
+		out_stream->time_base=in_stream->time_base;//(AVRational){1,30};
+		//enc_ctx->time_base = (AVRational){1,30};//dec_ctx->time_base;//(AVRational){1,30}; //(1,fps del video )
+		//enc_ctx->framerate = (AVRational) {30,1};
 		enc_ctx->pix_fmt = encoder->pix_fmts[0];
 
 		
@@ -152,7 +156,7 @@ AVFormatContext *open_output_file(const char *filename,AVFormatContext *ifmt_ctx
 		if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
 			enc_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
-	}
+	//}
 
 	//av_dump_format(ofmt_ctx, 0, filename, 1);
 
@@ -200,8 +204,15 @@ int encode_write_frame(AVFrame *frame, unsigned int stream_index, int *got_frame
 
 	/* prepare packet for muxing */
 	enc_pkt.stream_index = stream_index;
+	
 
-	av_packet_rescale_ts(&enc_pkt, ofmt_ctx->streams[stream_index]->codec->time_base, ofmt_ctx->streams[stream_index]->time_base);
+	if (enc_pkt.pts != AV_NOPTS_VALUE)
+     enc_pkt.pts =  av_rescale_q(enc_pkt.pts, ofmt_ctx->streams[stream_index]->codec->time_base,ofmt_ctx->streams[stream_index]->time_base);
+ 	if (enc_pkt.dts != AV_NOPTS_VALUE)
+     enc_pkt.dts = av_rescale_q(enc_pkt.dts, ofmt_ctx->streams[stream_index]->codec->time_base, ofmt_ctx->streams[stream_index]->time_base);
+ 
+
+	//av_packet_rescale_ts(&enc_pkt, ofmt_ctx->streams[stream_index]->codec->time_base, ofmt_ctx->streams[stream_index]->time_base);
 
 
 	//av_log(NULL, AV_LOG_DEBUG, "Muxing frame\n");
@@ -257,6 +268,12 @@ int main(int argc, char **argv)
 	int stream_index;
 	int got_frame=0;
 
+	int64_t position=0;
+	int64_t prev_pts=0;
+
+
+	int64_t pts=0;
+
     AVPacket packet;
 
 	AVFormatContext *ifmt_ctx;
@@ -296,7 +313,7 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
     }
 	printf("video stream index is %d\n",i_video_index);
-	ofmt_ctx = open_output_file(argv[2],ifmt_ctx);
+	ofmt_ctx = open_output_file(argv[2],ifmt_ctx,i_video_index);
 	if (!ofmt_ctx){
 		fprintf(stderr,"Error on opening %s",argv[2]);
 		exit(EXIT_FAILURE);
@@ -313,7 +330,7 @@ int main(int argc, char **argv)
 	printf("Transcoding...\n");
 
 	while(1){
-		usleep(4);//dormo per 4 millisecondi
+		
 			//leggo la frame 
 		ret=av_read_frame(ifmt_ctx,&packet);
 		if(ret>=0) {
@@ -325,7 +342,13 @@ int main(int argc, char **argv)
 
 			//ifmt_ctx->streams[stream_index]->codec->time_base = (AVRational){1,30};
 
-			av_packet_rescale_ts(&packet,ifmt_ctx->streams[stream_index]->codec->time_base,ifmt_ctx->streams[stream_index]->time_base);
+			//av_packet_rescale_ts(&packet,ifmt_ctx->streams[stream_index]->time_base,ifmt_ctx->streams[stream_index]->codec->time_base);
+			
+			if (packet.pts != AV_NOPTS_VALUE)
+     			packet.pts =  av_rescale_q(packet.pts, ifmt_ctx->streams[stream_index]->codec->time_base,ifmt_ctx->streams[stream_index]->time_base);
+ 			if (packet.dts != AV_NOPTS_VALUE)
+     			packet.dts = av_rescale_q(packet.dts, ifmt_ctx->streams[stream_index]->codec->time_base, ifmt_ctx->streams[stream_index]->time_base);
+
 
 			oc_ctx=ifmt_ctx->streams[stream_index]->codec;
 			o_codec=avcodec_find_decoder(oc_ctx->codec_id);
@@ -343,17 +366,27 @@ int main(int argc, char **argv)
 			}
 			if(got_frame){
 
-				int64_t position = av_frame_get_best_effort_timestamp(frame);
+				//printf("packet flags: %d picture type: %c\n", packet.flags,av_get_picture_type_char(frame->pict_type));
+				//do{
+					position = av_frame_get_best_effort_timestamp(frame);
+				//}while (!((position != AV_NOPTS_VALUE) && (position >=0)));
+				
+				//prev_pts=position;
 
 				if (!((position != AV_NOPTS_VALUE) && (position >=0))){
 					printf("PTS %d Error\n",position);
-					exit(EXIT_FAILURE);
+					break;//exit(EXIT_FAILURE);
 				}
+
+				//if (frame) {
+			    //   frame->pts = pts;
+        		//	pts += frame->nb_samples;
+    			//}
 
 				frame->pts=position;
 				
 				//frame->dts=frame->pts;
-				frame->pict_type=AV_PICTURE_TYPE_NONE;
+				frame->pict_type=av_get_picture_type_char(frame->pict_type);//AV_PICTURE_TYPE_NONE;
 				ret = encode_write_frame(frame,stream_index,&got_frame,ofmt_ctx);
 				if(ret<0){
 					printf("Error on write frame...\n");

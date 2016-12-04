@@ -6,7 +6,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceRoot}/transcoder-ng",
-            "args": ["rtp://127.0.0.1:50040", "test.mp4"],
+            "args": ["rtp://127.0.0.1:50040", "prova.mp4"],
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}",
             "environment": [],
