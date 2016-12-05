@@ -55,8 +55,7 @@ AVFormatContext *output_ctx;
 
 
 
-AVFormatContext *open_rtp_stream(char *url,int *index)
-{
+AVFormatContext *open_rtp_stream(char *url,int *index){
     AVFormatContext *context = avformat_alloc_context();
     int video_stream_index;
 	AVInputFormat *ifmt=NULL;
@@ -68,14 +67,50 @@ AVFormatContext *open_rtp_stream(char *url,int *index)
         return -1;
 	}
 
-	/*ifmt_ctx->flags |= AVFMT_FLAG_NONBLOCK;
+	context->flags |= AVFMT_FLAG_NONBLOCK;
 	av_dict_set(&options, "input_format", "h264", 0);
-	/*av_dict_set(&options, "framerate", "25", 0);
-	av_dict_set(&options, "input_format", "mjpeg", 0);
-	av_dict_set(&options, "video_size", "640x480", 0);
-	if (avformat_open_input(&ifmt_ctx, src_filename, ifmt, &options)*/
+	//av_dict_set(&options, "framerate", "25", 0);
+	//av_dict_set(&options, "input_format", "mjpeg", 0);
+	//av_dict_set(&options, "video_size", "640x480", 0);
+	//if (avformat_open_input(&ifmt_ctx, src_filename, ifmt, &options)*/
 
-    if (avformat_open_input(&context, url, ifmt, NULL) != 0){
+    if (avformat_open_input(&context, url, ifmt, &options) != 0){
+		return EXIT_FAILURE;
+    }
+
+    if (avformat_find_stream_info(context, NULL) < 0){
+		return EXIT_FAILURE;
+	}
+
+	 for(int i =0;i<context->nb_streams;i++){
+        if(context->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO)
+            video_stream_index = i;
+    }
+    //av_dump_format(context, 0, url, 0);
+	(*index)=video_stream_index;
+    return context;
+}
+
+AVFormatContext *open_rtp_out_stream(char *url,int *index){
+    AVFormatContext *context = avformat_alloc_context();
+    int video_stream_index;
+	AVInputFormat *ifmt=NULL;
+	AVDictionary *options = NULL;
+
+	ifmt = av_find_o("mpegts");
+	if (!ifmt) {
+        av_log(0, AV_LOG_ERROR, "Cannot find input format\n");
+        return -1;
+	}
+
+	context->flags |= AVFMT_FLAG_NONBLOCK;
+	av_dict_set(&options, "input_format", "h264", 0);
+	//av_dict_set(&options, "framerate", "25", 0);
+	//av_dict_set(&options, "input_format", "mjpeg", 0);
+	//av_dict_set(&options, "video_size", "640x480", 0);
+	//if (avformat_open_input(&ifmt_ctx, src_filename, ifmt, &options)*/
+
+    if (avformat_open_input(&context, url, ifmt, &options) != 0){
 		return EXIT_FAILURE;
     }
 
@@ -194,7 +229,7 @@ int encode_write_frame(AVFrame *frame, unsigned int stream_index, int *got_frame
 	av_init_packet(&enc_pkt);
 	ret = avcodec_encode_video2(ofmt_ctx->streams[stream_index]->codec, &enc_pkt,
 			frame, got_frame);
-	//av_frame_free(&filt_frame);
+
 	if (ret < 0){
 		printf("Error encode!!!\n");
 		exit(EXIT_FAILURE);
@@ -205,19 +240,19 @@ int encode_write_frame(AVFrame *frame, unsigned int stream_index, int *got_frame
 	/* prepare packet for muxing */
 	enc_pkt.stream_index = stream_index;
 	
-
-	if (enc_pkt.pts != AV_NOPTS_VALUE)
+	
+	/*if (enc_pkt.pts != AV_NOPTS_VALUE)
      enc_pkt.pts =  av_rescale_q(enc_pkt.pts, ofmt_ctx->streams[stream_index]->codec->time_base,ofmt_ctx->streams[stream_index]->time_base);
  	if (enc_pkt.dts != AV_NOPTS_VALUE)
-     enc_pkt.dts = av_rescale_q(enc_pkt.dts, ofmt_ctx->streams[stream_index]->codec->time_base, ofmt_ctx->streams[stream_index]->time_base);
- 
+     enc_pkt.dts = av_rescale_q(enc_pkt.dts, ofmt_ctx->streams[stream_index]->codec->time_base, ofmt_ctx->streams[stream_index]->time_base);*/
+	 
 
-	//av_packet_rescale_ts(&enc_pkt, ofmt_ctx->streams[stream_index]->codec->time_base, ofmt_ctx->streams[stream_index]->time_base);
+	av_packet_rescale_ts(&enc_pkt, ofmt_ctx->streams[stream_index]->codec->time_base, ofmt_ctx->streams[stream_index]->time_base);
 
 
 	//av_log(NULL, AV_LOG_DEBUG, "Muxing frame\n");
 	/* mux encoded frame */
-	ret = av_interleaved_write_frame(ofmt_ctx, &enc_pkt);
+	ret = av_write_frame(ofmt_ctx, &enc_pkt);
 	return ret;
 }
 
@@ -254,9 +289,23 @@ void sig_handler(int signo)
 				printf("Error on flush encoder!\n");
 				exit(EXIT_FAILURE);
 			}
+
+			av_write_trailer(output_ctx);
+
+		for (i = 0; i < input_ctx->nb_streams; i++) {
+			avcodec_close(input_ctx->streams[i]->codec);
+			if (output_ctx && output_ctx->nb_streams > i && output_ctx->streams[i] && output_ctx->streams[i]->codec)
+				avcodec_close(output_ctx->streams[i]->codec);
+			/*if (filter_ctx && filter_ctx[i].filter_graph)
+				avfilter_graph_free(&filter_ctx[i].filter_graph);*/
+		}			
+			if (output_ctx && !(output_ctx->oformat->flags & AVFMT_NOFILE))
+				avio_closep(&output_ctx->pb);
+			avformat_free_context(output_ctx);
+			
 		}
 
-		av_write_trailer(output_ctx);
+		//av_write_trailer(output_ctx);
 		exit(EXIT_SUCCESS);
     }
 }
@@ -342,13 +391,13 @@ int main(int argc, char **argv)
 
 			//ifmt_ctx->streams[stream_index]->codec->time_base = (AVRational){1,30};
 
-			//av_packet_rescale_ts(&packet,ifmt_ctx->streams[stream_index]->time_base,ifmt_ctx->streams[stream_index]->codec->time_base);
-			
+			av_packet_rescale_ts(&packet,ifmt_ctx->streams[stream_index]->time_base,ifmt_ctx->streams[stream_index]->codec->time_base);
+			/*
 			if (packet.pts != AV_NOPTS_VALUE)
      			packet.pts =  av_rescale_q(packet.pts, ifmt_ctx->streams[stream_index]->codec->time_base,ifmt_ctx->streams[stream_index]->time_base);
  			if (packet.dts != AV_NOPTS_VALUE)
      			packet.dts = av_rescale_q(packet.dts, ifmt_ctx->streams[stream_index]->codec->time_base, ifmt_ctx->streams[stream_index]->time_base);
-
+			*/
 
 			oc_ctx=ifmt_ctx->streams[stream_index]->codec;
 			o_codec=avcodec_find_decoder(oc_ctx->codec_id);
@@ -378,15 +427,14 @@ int main(int argc, char **argv)
 					break;//exit(EXIT_FAILURE);
 				}
 
-				//if (frame) {
-			    //   frame->pts = pts;
-        		//	pts += frame->nb_samples;
-    			//}
+				/*if (frame) {
+			       frame->pts = pts;
+        		   pts += frame->nb_samples+1;
+    			}*/
 
 				frame->pts=position;
 				
-				//frame->dts=frame->pts;
-				frame->pict_type=av_get_picture_type_char(frame->pict_type);//AV_PICTURE_TYPE_NONE;
+				//frame->pict_type=av_get_picture_type_char(frame->pict_type);//AV_PICTURE_TYPE_NONE;
 				ret = encode_write_frame(frame,stream_index,&got_frame,ofmt_ctx);
 				if(ret<0){
 					printf("Error on write frame...\n");
@@ -397,7 +445,7 @@ int main(int argc, char **argv)
 				av_frame_free(&frame);
 			}
 		}
-		av_packet_unref(&packet);
+		//av_packet_unref(&packet);
 
 		
 
