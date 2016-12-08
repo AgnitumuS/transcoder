@@ -1,16 +1,25 @@
 #!/bin/bash
 
+file_name=$1
+destination=$2
+quality=$3
+port=$4
 
-#vlc-wrapper --loop high_quality.mp4 --sout '#rtp{dst=127.0.0.1,port=5004,mux=ts}'
+case "$3" in
+    "0")
+    sout='#rtp{dst='$destination',port='$port',mux=ts}'
+    ;;
+    "1")
+    sout='#transcode{vcodec=h264,scale=0.5,venc=x264{preset=ultrafast,tune=zerolatency,intra-refresh,lookahead=10,keyint=15}}:rtp{dst='$destination',port='$port',mux=ts,caching=50000}'
+    ;;
+    "2")
+    sout='#transcode{vcodec=h264,scale=0.25,venc=x264{preset=ultrafast,tune=zerolatency,intra-refresh,lookahead=10,keyint=15}}:rtp{dst='$destination',port='$port',mux=ts,caching=50000}'
+    ;;
+    *)
+    echo "Quality should be 0 or 1 or 2"
+    exit 1
+    ;;
+esac
 
-
-#cvlc -vvv v4l2:///dev/video0 --sout '#transcode{vcodec=mp2v,vb=50,acodec=none}:rtp{dst=192.168.2.16,port=50042,mux=ts}'
-
-
-#cvlc -vvv v4l2:///dev/video0 --sout '#transcode{vcodec=WMV2,vb=800,scale=Auto,acodec=wma2,ab=128,channels=2,samplerate=44100}:rtp{dst=192.168.1.122,port=50042,mux=ts,sap,name=fd}'
-#cvlc -vvv v4l2:///dev/video0 --sout '#transcode{vcodec=WMV2,vb=50,acodec=none}:rtp{dst=192.168.1.122,port=50042,mux=ts}'
-
-#:sout-keep'
-##transcode{vcodec=h264,scale=1,width=1280,height=720,fps=25,venc=x264{preset=ultrafast,tune=zerolatency,vbv-bufsize=1000,intra-refresh,lookahead=10,keyint=25},acodec=none}:rtp{dst=%s,port=50041,mux=ts}
-
-cvlc --loop high_quality.mp4  --avcodec-hw=vaapi --sout '#transcode{vcodec=h264,scale=1,width=1280,height=720,fps=25,venc=x264{preset=ultrafast,tune=zerolatency},acodec=none}:rtp{dst=192.168.2.50,port=50041,mux=ts}'
+echo $sout
+cvlc  --loop $1  --sout $sout 
