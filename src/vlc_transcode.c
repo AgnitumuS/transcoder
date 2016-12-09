@@ -63,7 +63,7 @@ void *start_stream(void *arg){
 
 
     const char *sout_high = "#rtp{dst=%s,port=50040,mux=ts}";
-    const char *sout_medium = "#transcode{vcodec=h264,scale=0.5,venc=x264{preset=ultrafast,tune=zerolatency,intra-refresh,lookahead=10,keyint=15}}:rtp{dst=%s,port=50042,mux=ts,caching=50000}";
+    const char *sout_medium = "#transcode{vcodec=h264,scale=0.5,venc=x264{preset=ultrafast,tune=zerolatency,intra-refresh,lookahead=10,keyint=15}}:rtp{dst=%s,port=50041,mux=ts,caching=50000}";
     const char *sout_low = "#transcode{vcodec=h264,scale=0.25,venc=x264{preset=ultrafast,tune=zerolatency,intra-refresh,lookahead=10,keyint=15}}:rtp{dst=%s,port=50042,mux=ts,caching=50000}";
 
     const char *sin="%s";//" --rtp-caching=100";
