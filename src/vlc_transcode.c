@@ -25,6 +25,15 @@ void sig_handler(int signo){
     int ret;
 	int i;
     if (signo == SIGINT) {
+
+        //chiusura gentile dei thread
+        for(int i=0;i<THREADPOOLSIZE;i++){
+            if (tpool[i]!=NULL){
+                thread_to_kill=tpool[i].pth;
+                sem_post(&t_sem);
+            }
+        }
+
 		exit(EXIT_SUCCESS);
     }
 }
@@ -94,8 +103,6 @@ void *start_stream(void *arg){
 
 
     }
-
-
     
     printf("sout command is %s\n",sout_cmd);
     printf("sin command is %s\n",sin_cmd);
@@ -194,16 +201,18 @@ int main(int argc, char **argv) {
         }else{
             if(strncmp(msg.cmd_type,"ADD",3)==0){
                 int pos = search_stream(msg.quality,t_pool_index);
-                if(pos>=0){
-                    printf("Stream already present...\n");
-                    break;
+                if(pos<0){
+                     t.quality=msg.quality;
+                    t.ip="192.168.34.41";
+                    pthread_create(&t.pth,NULL,start_stream,(void *)&t);
+                    tpool[t_pool_index]=t;
+                    t_pool_index++;
+                    printf("New thread launched with quality %d\n",msg.quality);
+                    
+                }else{
+                   printf("Stream already present...\n");
                 }
-                t.quality=msg.quality;
-                t.ip="192.168.34.41";
-                pthread_create(&t.pth,NULL,start_stream,(void *)&t);
-                tpool[t_pool_index]=t;
-                t_pool_index++;
-                printf("New thread launched with quality %d\n",msg.quality);
+                
             }
 
             if(strncmp(msg.cmd_type,"DEL",3)==0){
@@ -221,7 +230,7 @@ int main(int argc, char **argv) {
         close(new_sock);
     }
     
-
+}
 
 
     /*
@@ -301,4 +310,3 @@ int main(int argc, char **argv) {
     libvlc_vlm_stop_media(vlc, media_name);
     libvlc_vlm_release(vlc);
     return 0;*/
-}
