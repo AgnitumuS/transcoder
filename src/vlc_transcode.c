@@ -27,12 +27,12 @@ void sig_handler(int signo){
     if (signo == SIGINT) {
 
         //chiusura gentile dei thread
-        for(int i=0;i<THREADPOOLSIZE;i++){
-            if (tpool[i]!=NULL){
+       /* for(int i=0;i<THREADPOOLSIZE;i++){
+            if (tpool[i]!=0){
                 thread_to_kill=tpool[i].pth;
                 sem_post(&t_sem);
             }
-        }
+        }*/
 
 		exit(EXIT_SUCCESS);
     }
